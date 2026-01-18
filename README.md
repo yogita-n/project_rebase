@@ -130,6 +130,49 @@ pip install -r requirements-prod.txt
 pip install -r requirements-system.txt
 ```
 
+### Pathway Engine Installation (Windows Users)
+Pathway does not support native Windows installation. You must use **WSL (Windows Subsystem for Linux)**.
+
+1. **Enable WSL**:
+   Open PowerShell as Administrator and run:
+   ```powershell
+   wsl --install
+   ```
+   (Restart if prompted, then open "Ubuntu" from Start menu)
+
+2. **Set up Python Environment in WSL**:
+   Run these commands inside your **WSL terminal**:
+   ```bash
+   # Update package lists
+   sudo apt update
+
+   # Install pip and venv
+   sudo apt install -y python3-pip python3-venv
+
+   # Create a virtual environment (recommended in your home dir)
+   mkdir ~/my_pathway_project
+   cd ~/my_pathway_project
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
+
+3. **Install Pathway & Project Dependencies**:
+   ```bash
+   # Install Pathway
+   pip install pathway
+
+   # Access your project files (replace with your actual username/path)
+   cd /mnt/c/Users/YOUR_USERNAME/Desktop/project_rebase
+
+   # Install web server requirements into this Linux venv
+   pip install flask flask-cors requests packaging
+   ```
+
+4. **Run the Project**:
+   ```bash
+   python3 web_server.py
+   ```
+
 ### Docker
 
 ```bash
