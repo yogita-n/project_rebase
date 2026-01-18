@@ -1,0 +1,11 @@
+# Render deployment configuration
+# https://render.com
+
+# Build Command (leave empty, uses Dockerfile)
+# Docker Command: (uses CMD from Dockerfile)
+
+# Environment Variables to set in Render Dashboard:
+# - PYTHON_VERSION=3.11
+# - OPENAI_API_KEY=your-key-here (optional, for AI features)
+
+# Health Check Path: /api/health

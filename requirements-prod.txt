@@ -1,0 +1,15 @@
+# Production requirements for deployment
+# Core dependencies
+requests>=2.31.0
+packaging>=23.0
+
+# Web server
+flask>=3.0.0
+flask-cors>=4.0.0
+gunicorn>=21.0.0
+
+# Optional: AI features (uncomment if using OpenAI)
+# openai>=1.0.0
+
+# Optional: Pathway streaming (uncomment if needed)
+# pathway>=0.7.0

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dependency Analysis System</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="title">
+                    <span class="icon">🔍</span>
+                    Dependency Analysis System
+                </h1>
+                <p class="subtitle">Real-time detection of breaking changes in your Python dependencies</p>
+            </div>
+        </header>
+
+        <!-- Input Section -->
+        <section class="input-section">
+            <div class="input-card">
+                <h2>Analyze Repository</h2>
+                <p class="input-description">Enter a GitHub repository URL or local path to analyze dependencies</p>
+                
+                <form id="analyzeForm" class="analyze-form">
+                    <div class="input-group">
+                        <input 
+                            type="text" 
+                            id="repoInput" 
+                            class="repo-input" 
+                            placeholder="https://github.com/username/repository"
+                            required
+                        >
+                        <button type="submit" class="analyze-btn" id="analyzeBtn">
+                            <span class="btn-text">Analyze</span>
+                            <span class="btn-icon">→</span>
+                        </button>
+                    </div>
+                    <div class="input-examples">
+                        <span class="example-label">Examples:</span>
+                        <button type="button" class="example-btn" data-url="https://github.com/psf/requests">psf/requests</button>
+                        <button type="button" class="example-btn" data-url=".">Current Directory</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="loading-state hidden">
+            <div class="spinner"></div>
+            <p class="loading-text">Analyzing repository...</p>
+            <p class="loading-subtext">This may take a minute</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="error-state hidden">
+            <div class="error-icon">⚠️</div>
+            <h3 class="error-title">Analysis Failed</h3>
+            <p class="error-message" id="errorMessage"></p>
+            <button class="retry-btn" onclick="resetForm()">Try Again</button>
+        </div>
+
+        <!-- Results Section -->
+        <section id="resultsSection" class="results-section hidden">
+            <!-- Summary Cards -->
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <div class="summary-icon">📦</div>
+                    <div class="summary-content">
+                        <div class="summary-value" id="totalDeps">0</div>
+                        <div class="summary-label">Total Dependencies</div>
+                    </div>
+                </div>
+                <div class="summary-card breaking">
+                    <div class="summary-icon">⚠️</div>
+                    <div class="summary-content">
+                        <div class="summary-value" id="breakingChanges">0</div>
+                        <div class="summary-label">Breaking Changes</div>
+                    </div>
+                </div>
+                <div class="summary-card outdated">
+                    <div class="summary-icon">🔄</div>
+                    <div class="summary-content">
+                        <div class="summary-value" id="outdatedPkgs">0</div>
+                        <div class="summary-label">Outdated Packages</div>
+                    </div>
+                </div>
+                <div class="summary-card uptodate">
+                    <div class="summary-icon">✓</div>
+                    <div class="summary-content">
+                        <div class="summary-value" id="uptodatePkgs">0</div>
+                        <div class="summary-label">Up-to-date</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Repository Info -->
+            <div class="repo-info">
+                <h3>Repository: <span id="repoPath"></span></h3>
+            </div>
+
+            <!-- Package List -->
+            <div class="packages-container">
+                <h2 class="section-title">Package Details</h2>
+                <div id="packagesList" class="packages-list"></div>
+            </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

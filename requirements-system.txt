@@ -1,0 +1,20 @@
+# System dependencies for Real-Time Dependency Deprecation & Migration Intelligence System
+
+# Core dependencies
+pathway>=0.7.0
+requests>=2.31.0
+packaging>=23.0
+
+# For AI/LLM integration (to be used in ai_fixer.py)
+openai>=1.0.0
+# Alternative: anthropic>=0.18.0
+
+# Code analysis
+ast-comments>=1.1.0
+
+# Utilities
+python-dotenv>=1.0.0
+
+# Web server dependencies
+flask>=2.0.0
+flask-cors>=3.0.0
