@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dependency Analysis System</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <div class="container">
         <!-- Header -->
@@ -19,21 +21,53 @@
             </div>
         </header>
 
+        <!-- Real-Time Streaming Section -->
+        <section class="streaming-section" id="streamingSection">
+            <div class="streaming-card">
+                <div class="streaming-header">
+                    <h2>🔴 Live Streaming Dashboard</h2>
+                    <div class="streaming-controls">
+                        <button id="startStreamBtn" class="stream-btn start-btn">Start Streaming</button>
+                        <span id="streamStatus" class="stream-status">Disconnected</span>
+                    </div>
+                </div>
+
+                <!-- Stream Input -->
+                <div id="streamInput" class="stream-input">
+                    <input type="text" id="streamRepoInput" class="repo-input" placeholder="/mnt/d/dependabot">
+                    <input type="number" id="pollIntervalInput" class="poll-input" placeholder="Poll interval (sec)"
+                        value="10" min="5">
+                </div>
+
+                <!-- Breaking Changes Summary -->
+                <div id="breakingChangesSummary" class="breaking-summary hidden">
+                    <div class="breaking-header">
+                        <h3>🚨 Breaking Changes Detected</h3>
+                        <span id="breakingChangesCount" class="breaking-count">0</span>
+                    </div>
+                    <div id="breakingChangesList" class="breaking-list">
+                        <!-- Breaking changes will be added here dynamically -->
+                    </div>
+                </div>
+
+                <!-- Live Events Feed -->
+                <div id="liveEvents" class="live-events hidden">
+                    <h3>Live Events</h3>
+                    <div id="eventsContainer" class="events-container"></div>
+                </div>
+            </div>
+        </section>
+
         <!-- Input Section -->
         <section class="input-section">
             <div class="input-card">
                 <h2>Analyze Repository</h2>
                 <p class="input-description">Enter a GitHub repository URL or local path to analyze dependencies</p>
-                
+
                 <form id="analyzeForm" class="analyze-form">
                     <div class="input-group">
-                        <input 
-                            type="text" 
-                            id="repoInput" 
-                            class="repo-input" 
-                            placeholder="https://github.com/username/repository"
-                            required
-                        >
+                        <input type="text" id="repoInput" class="repo-input"
+                            placeholder="https://github.com/username/repository" required>
                         <button type="submit" class="analyze-btn" id="analyzeBtn">
                             <span class="btn-text">Analyze</span>
                             <span class="btn-icon">→</span>
@@ -41,7 +75,8 @@
                     </div>
                     <div class="input-examples">
                         <span class="example-label">Examples:</span>
-                        <button type="button" class="example-btn" data-url="https://github.com/psf/requests">psf/requests</button>
+                        <button type="button" class="example-btn"
+                            data-url="https://github.com/psf/requests">psf/requests</button>
                         <button type="button" class="example-btn" data-url=".">Current Directory</button>
                     </div>
                 </form>
@@ -112,4 +147,5 @@
 
     <script src="script.js"></script>
 </body>
+
 </html>

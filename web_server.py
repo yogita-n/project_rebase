@@ -4,7 +4,7 @@ Web API Server for Dependency Analysis System
 Provides REST API endpoints for the frontend to interact with the analysis system.
 """
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response
 from flask_cors import CORS
 import os
 import sys
@@ -14,10 +14,14 @@ from pathlib import Path
 
 # Import the main system
 from app import DeprecationIntelligenceSystem
+from core.pathway_stream import EventBroadcaster
 
 # Initialize Flask app
 app = Flask(__name__, static_folder='static', static_url_path='')
 CORS(app)
+
+# Global event broadcaster for SSE
+event_broadcaster = EventBroadcaster()
 
 # Store analysis results temporarily
 analysis_cache = {}
@@ -27,6 +31,83 @@ analysis_cache = {}
 def index():
     """Serve the main HTML page."""
     return send_from_directory('static', 'index.html')
+
+
+@app.route('/api/stream')
+def stream():
+    """
+    Server-Sent Events (SSE) endpoint for real-time updates.
+    Streams PyPI polling events and breaking changes to the browser.
+    """
+    def event_stream():
+        """Generator that yields SSE formatted events."""
+        client_queue = event_broadcaster.add_client()
+        try:
+            # Send initial connection event
+            yield f"data: {json.dumps({'type': 'connected', 'message': 'SSE connection established'})}\n\n"
+            
+            # Stream events as they come
+            while True:
+                try:
+                    # Wait for event with timeout
+                    event_data = client_queue.get(timeout=30)
+                    yield f"data: {event_data}\n\n"
+                except:
+                    # Send keepalive ping every 30 seconds
+                    yield f": keepalive\n\n"
+        finally:
+            event_broadcaster.remove_client(client_queue)
+    
+    return Response(event_stream(), mimetype='text/event-stream')
+
+
+@app.route('/api/streaming/start', methods=['POST'])
+def start_streaming():
+    """
+    Start the streaming system in a background thread.
+    
+    Request body:
+    {
+        "repo_url": "https://github.com/user/repo or /path/to/local",
+        "poll_interval": 30  # optional
+    }
+    """
+    try:
+        data = request.get_json()
+        repo_url = data.get('repo_url', '').strip()
+        poll_interval = data.get('poll_interval', 30)
+        
+        if not repo_url:
+            return jsonify({
+                'status': 'error',
+                'message': 'Repository URL is required'
+            }), 400
+        
+        # Start streaming in background thread
+        def run_streaming():
+            # Initialize system WITH event broadcaster
+            system = DeprecationIntelligenceSystem(
+                poll_interval=poll_interval,
+                event_broadcaster=event_broadcaster  # Pass the event bro   adcaster here
+            )
+            
+            # Run streaming
+            system.run_streaming(repo_url)
+        
+        # Start streaming in background thread
+        thread = threading.Thread(target=run_streaming, daemon=True)
+        thread.start()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Streaming started successfully'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to start streaming: {str(e)}'
+        }), 500
 
 
 @app.route('/api/analyze', methods=['POST'])

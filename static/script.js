@@ -21,6 +21,28 @@ const packagesListEl = document.getElementById('packagesList');
 // Example buttons
 const exampleBtns = document.querySelectorAll('.example-btn');
 
+// Streaming elements
+const streamingSection = document.getElementById('streamingSection');
+const startStreamBtn = document.getElementById('startStreamBtn');
+const streamStatus = document.getElementById('streamStatus');
+const streamInput = document.getElementById('streamInput');
+const streamRepoInput = document.getElementById('streamRepoInput');
+const pollIntervalInput = document.getElementById('pollIntervalInput');
+const liveEvents = document.getElementById('liveEvents');
+const eventsContainer = document.getElementById('eventsContainer');
+
+// Breaking changes summary
+const breakingChangesSummary = document.getElementById('breakingChangesSummary');
+const breakingChangesList = document.getElementById('breakingChangesList');
+const breakingChangesCount = document.getElementById('breakingChangesCount');
+
+// SSE connection
+let eventSource = null;
+let isStreaming = false;
+
+// Store breaking changes
+let breakingChanges = [];
+
 // Event Listeners
 analyzeForm.addEventListener('submit', handleAnalyze);
 
@@ -359,3 +381,297 @@ async function checkServerHealth() {
 
 // Initialize
 checkServerHealth();
+
+// ======================
+// STREAMING FUNCTIONALITY
+// ======================
+
+// Start streaming button handler
+startStreamBtn.addEventListener('click', toggleStreaming);
+
+async function toggleStreaming() {
+    if (isStreaming) {
+        stopStreaming();
+    } else {
+        const repoUrl = streamRepoInput.value.trim();
+        const pollInterval = parseInt(pollIntervalInput.value) || 10;
+
+        if (!repoUrl) {
+            alert('Please enter a repository path');
+            return;
+        }
+
+        await startStreaming(repoUrl, pollInterval);
+    }
+}
+
+async function startStreaming(repoUrl, pollInterval) {
+    try {
+        // Start the streaming backend
+        startStreamBtn.disabled = true;
+        streamStatus.textContent = 'Starting...';
+        streamStatus.className = 'stream-status connecting';
+
+        // Reset breaking changes
+        breakingChanges = [];
+        updateBreakingChangesSummary();
+
+        const response = await fetch(`${API_BASE_URL}/streaming/start`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ repo_url: repoUrl, poll_interval: pollInterval })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            // Connect to SSE stream
+            connectEventSource();
+
+            // Show live events section
+            liveEvents.classList.remove('hidden');
+            streamInput.classList.add('hidden');
+
+            // Update UI
+            isStreaming = true;
+            startStreamBtn.textContent = 'Stop Streaming';
+            startStreamBtn.classList.remove('start-btn');
+            startStreamBtn.classList.add('stop-btn');
+            startStreamBtn.disabled = false;
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (error) {
+        console.error('Failed to start streaming:', error);
+        streamStatus.textContent = 'Error';
+        streamStatus.className = 'stream-status error';
+        startStreamBtn.disabled = false;
+        alert(`Failed to start streaming: ${error.message}`);
+    }
+}
+
+function stopStreaming() {
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+    }
+
+    isStreaming = false;
+    startStreamBtn.textContent = 'Start Streaming';
+    startStreamBtn.classList.remove('stop-btn');
+    startStreamBtn.classList.add('start-btn');
+    streamStatus.textContent = 'Disconnected';
+    streamStatus.className = 'stream-status';
+    liveEvents.classList.add('hidden');
+    streamInput.classList.remove('hidden');
+}
+
+function connectEventSource() {
+    // Close existing connection if any
+    if (eventSource) {
+        eventSource.close();
+    }
+
+    // Create new EventSource connection
+    eventSource = new EventSource(`${API_BASE_URL}/stream`);
+
+    eventSource.onopen = () => {
+        streamStatus.textContent = 'Connected';
+        streamStatus.className = 'stream-status connected';
+        console.log('SSE connection established');
+    };
+
+    eventSource.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            handleStreamEvent(data);
+        } catch (error) {
+            console.error('Error parsing event:', error);
+        }
+    };
+
+    eventSource.onerror = (error) => {
+        console.error('SSE error:', error);
+        streamStatus.textContent = 'Connection Error';
+        streamStatus.className = 'stream-status error';
+
+        // Attempt to reconnect after delay
+        setTimeout(() => {
+            if (isStreaming) {
+                connectEventSource();
+            }
+        }, 5000);
+    };
+}
+
+function handleStreamEvent(event) {
+    console.log('Stream event:', event);
+
+    const { type, timestamp, data } = event;
+
+    switch (type) {
+        case 'connected':
+            addEventToFeed('✅ Connection established', 'success');
+            break;
+
+        case 'poll_start':
+            addEventToFeed(`🔄 Polling PyPI for ${data.package_count} packages...`, 'info');
+            break;
+
+        case 'package_update':
+            // Use the formatted display message from backend if available
+            let displayMessage;
+            
+            if (data.display_message) {
+                // Use the backend's formatted message
+                displayMessage = `📦 ${data.package_name}: ${data.display_message}`;
+            } else {
+                // Fallback: create our own formatted message
+                const previousVersion = data.previous_version;
+                if (previousVersion && previousVersion.trim() !== '') {
+                    displayMessage = `📦 ${data.package_name}: ${previousVersion} → ${data.latest_version}`;
+                } else {
+                    // For first fetch or unknown previous version
+                    displayMessage = `📦 ${data.package_name}: ${data.latest_version}`;
+                }
+            }
+            
+            addEventToFeed(displayMessage, 'update');
+            break;
+
+        case 'breaking_change':
+            // Format breaking change message - use display_message if available
+            let breakingDisplay;
+            
+            if (data.display_message) {
+                // Use the backend's formatted message
+                breakingDisplay = `🚨 ${data.package_name}: ${data.display_message}`;
+            } else {
+                // Fallback: create our own formatted message
+                const currentVersion = data.current_version || 'unknown';
+                breakingDisplay = `🚨 ${data.package_name}: ${currentVersion} → ${data.latest_version}`;
+            }
+            
+            addEventToFeed(breakingDisplay, 'breaking');
+            
+            // Add to breaking changes list
+            addBreakingChange({
+                package: data.package_name,
+                current_version: data.current_version || 'unknown',
+                latest_version: data.latest_version,
+                timestamp: timestamp || new Date().toISOString()
+            });
+            
+            // Show toast notification
+            showNotification(`🚨 Breaking change detected in ${data.package_name}!`);
+            break;
+
+        case 'pipeline_step':
+            let stepMessage;
+            if (data.step === 'scanning') {
+                stepMessage = `🔍 Scanning ${data.package_name}...`;
+            } else if (data.step === 'mapping') {
+                stepMessage = `🗺️ Mapping ${data.usage_count} usages for ${data.package_name}...`;
+            } else if (data.step === 'ai_fixes') {
+                stepMessage = `🤖 Generating AI fixes for ${data.impact_count} impacts in ${data.package_name}...`;
+            } else {
+                stepMessage = `⚙️ ${data.step}: ${data.message}`;
+            }
+            addEventToFeed(stepMessage, 'pipeline');
+            break;
+
+        default:
+            console.log('Unknown event type:', type);
+    }
+}
+
+function addEventToFeed(message, eventType = 'info') {
+    if (!eventsContainer) {
+        console.warn('eventsContainer not found');
+        return;
+    }
+    
+    const eventEl = document.createElement('div');
+    eventEl.className = `event-item ${eventType}`;
+
+    const timestamp = new Date().toLocaleTimeString();
+    eventEl.innerHTML = `
+        <span class="event-time">[${timestamp}]</span>
+        <span class="event-message">${escapeHtml(message)}</span>
+    `;
+
+    eventsContainer.insertBefore(eventEl, eventsContainer.firstChild);
+
+    // Keep only last 50 events
+    while (eventsContainer.children.length > 50) {
+        eventsContainer.removeChild(eventsContainer.lastChild);
+    }
+
+    // Auto-scroll to top
+    eventsContainer.scrollTop = 0;
+}
+
+function addBreakingChange(breakingChange) {
+    // Add to breaking changes array
+    breakingChanges.unshift(breakingChange);
+    
+    // Keep only last 20 breaking changes
+    if (breakingChanges.length > 20) {
+        breakingChanges = breakingChanges.slice(0, 20);
+    }
+    
+    // Update the UI
+    updateBreakingChangesSummary();
+}
+
+function updateBreakingChangesSummary() {
+    if (!breakingChangesSummary || !breakingChangesList || !breakingChangesCount) {
+        console.warn('Breaking changes summary elements not found');
+        return;
+    }
+    
+    breakingChangesCount.textContent = breakingChanges.length;
+    
+    if (breakingChanges.length === 0) {
+        breakingChangesSummary.classList.add('hidden');
+        return;
+    }
+    
+    breakingChangesSummary.classList.remove('hidden');
+    breakingChangesList.innerHTML = '';
+    
+    breakingChanges.forEach((change, index) => {
+        const item = document.createElement('div');
+        item.className = 'breaking-change-item';
+        
+        const time = new Date(change.timestamp).toLocaleTimeString();
+        item.innerHTML = `
+            <div class="breaking-change-header">
+                <span class="breaking-change-package">${change.package}</span>
+                <span class="breaking-change-time">[${time}]</span>
+            </div>
+            <div class="breaking-change-versions">
+                ${change.current_version} → ${change.latest_version}
+            </div>
+        `;
+        
+        breakingChangesList.appendChild(item);
+    });
+}
+
+function showNotification(message) {
+    // Simple toast notification
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 100);
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => document.body.removeChild(toast), 300);
+    }, 5000);
+}
